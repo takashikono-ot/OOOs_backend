@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
+import os
 import pandas as pd
 import numpy as np
 
@@ -10,7 +11,6 @@ app = FastAPI(title="OOOs 潜在ランク推定API")
 # CORS 設定
 origins = [
     "https://ooos-frontend.netlify.app",
-    "http://localhost:3000",  # ローカル開発用に追加
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -20,18 +20,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# IRPパラメータ読み込み（空白・タブ区切りの TSV なら）
+# ルートエンドポイント（テスト用）
+@app.get("/")
+def read_root():
+    return {"message": "OOOs API is up and running"}
+
+# ────────────────────────────────────────────────
+# IRPパラメータ読み込み（空白・タブ区切りを自動判別）
+# ────────────────────────────────────────────────
+BASEDIR = os.path.dirname(__file__)
+irp_path = os.path.join(BASEDIR, "irp_output.csv")
+
+# 空白/タブを区切り文字とし、1行目をヘッダーとみなす
 irp_df = pd.read_csv(
-    "irp_output.csv",
-    delim_whitespace=True,   # 空白／タブを区切り文字とする
-    header=0,                # １行目をヘッダー（列見出し）としてスキップ
-    dtype=float,             # 全列を浮動小数点として読み込む
+    irp_path,
+    delim_whitespace=True,
+    header=0,
+    engine="python",
 )
-irp = irp_df.values  # ⇒ shape (n_binary, 7), dtype=float64
+# 全列を float に変換
+irp_df = irp_df.astype(float)
 
+irp = irp_df.values  # → shape=(n_binary, 7), dtype=float64
 print("IRP shape:", irp.shape, " dtype:", irp.dtype)
-
-
 
 
 def to_binary_all(responses: List[int]) -> np.ndarray:
