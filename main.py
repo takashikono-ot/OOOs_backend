@@ -20,20 +20,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# IRPパラメータ読み込み（スペース・タブ区切りの場合）
-# ————————————————————————————————
-# 1) delim_whitespace=True で「空白/タブ」を区切り文字と認識
-# 2) header=0 で１行目を列見出しとしてスキップ
-# 3) dtype=float で全列を強制的に float に変換
-# ————————————————————————————————
+# IRPパラメータ読み込み（空白・タブ区切りの TSV なら）
 irp_df = pd.read_csv(
     "irp_output.csv",
-    delim_whitespace=True,
-    header=0,
-    dtype=float
+    delim_whitespace=True,   # 空白／タブを区切り文字とする
+    header=0,                # １行目をヘッダー（列見出し）としてスキップ
+    dtype=float,             # 全列を浮動小数点として読み込む
 )
-irp = irp_df.values  # ⇒ shape (n_binary, 7), 中身はすべて float
+irp = irp_df.values  # ⇒ shape (n_binary, 7), dtype=float64
+
 print("IRP shape:", irp.shape, " dtype:", irp.dtype)
+
 
 
 
