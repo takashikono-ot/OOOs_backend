@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
@@ -7,11 +7,11 @@ import numpy as np
 
 app = FastAPI(title="OOOs 潜在ランク推定API")
 
-# ↓↓↓ CORS 設定をここから追加 ↓↓↓
+# CORS 設定
 origins = [
     "https://ooos-frontend.netlify.app",
+    "http://localhost:3000",  # ローカル開発用に追加
 ]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -19,11 +19,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# ↑↑↑ ここまで CORS 設定 ↑↑↑
 
 # IRPパラメータ読み込み
-# irp_output.csv は main.py と同じディレクトリに配置してください
-irp = pd.read_csv("irp_output.csv").values  # shape: (n_binary, 7)
+# 空白・タブ区切りの場合、sep=r"\s+" を指定
+irp_df = pd.read_csv(
+    "irp_output.csv",
+    sep=r"\s+",
+    engine="python",
+    skiprows=1,   # ヘッダー行がある場合は読み飛ばす
+    header=None
+)
+irp = irp_df.values  # shape should be (n_binary, 7)
+print("IRP shape:", irp.shape)
+
 
 def to_binary_all(responses: List[int]) -> np.ndarray:
     """
@@ -32,18 +40,19 @@ def to_binary_all(responses: List[int]) -> np.ndarray:
     """
     arr = []
     for x in responses:
-        # threshold = 1,2,3 の3個ずつ
         for th in (1, 2, 3):
-            arr.append(1 if x > th else 0)
+            # スコアがしきい値以上なら1
+            arr.append(1 if x >= th else 0)
     return np.array(arr, dtype=int)
+
 
 def predict_rank_probs(responses: List[int]) -> np.ndarray:
     """
     responses: List[int] 長さ42
     Return: numpy array 長さ7 の各ランク所属確率
     """
-    b = to_binary_all(responses)      # shape: (n_binary,)
-    P = irp                            # shape: (n_binary, 7)
+    b = to_binary_all(responses)    # shape: (n_binary,)
+    P = irp                          # shape: (n_binary, 7)
     # log-likelihood for each rank j
     logL = (b[:, None] * np.log(P) +
             (1 - b)[:, None] * np.log(1 - P)).sum(axis=0)
@@ -53,15 +62,29 @@ def predict_rank_probs(responses: List[int]) -> np.ndarray:
     probs = L / L.sum()
     return probs
 
+
 class OOOsRequest(BaseModel):
     responses: List[int]  # 長さ42, 各要素は1～4
+
 
 class OOOsResponse(BaseModel):
     rank_probs: List[float]  # 長さ7
     estimated_rank: int      # 最も確率の高いランク (1～7)
 
+
 @app.post("/predict", response_model=OOOsResponse)
 def predict_endpoint(req: OOOsRequest):
-    probs = predict_rank_probs(req.responses)
-    est = int(probs.argmax()) + 1
-    return {"rank_probs": probs.tolist(), "estimated_rank": est}
+    # 入力検証
+    if len(req.responses) != 42:
+        raise HTTPException(status_code=400, detail="`responses` must be length 42")
+    if any(x < 1 or x > 4 for x in req.responses):
+        raise HTTPException(status_code=400, detail="each response must be in 1..4")
+
+    # 確率計算
+    try:
+        probs = predict_rank_probs(req.responses)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"計算エラー: {e}")
+
+    estimated = int(np.argmax(probs)) + 1
+    return OOOsResponse(rank_probs=probs.tolist(), estimated_rank=estimated)
