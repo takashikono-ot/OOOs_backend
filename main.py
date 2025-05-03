@@ -1,10 +1,25 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 import pandas as pd
 import numpy as np
 
 app = FastAPI(title="OOOs 潜在ランク推定API")
+
+# ↓↓↓ CORS 設定をここから追加 ↓↓↓
+origins = [
+    "https://github.com/takashikono-ot/OOOs_frontend.git",  # あなたのフロントエンドの URL
+   ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# ↑↑↑ ここまで CORS 設定 ↑↑↑
 
 # IRPパラメータ読み込み
 # irp_output.csv は main.py と同じディレクトリに配置してください
