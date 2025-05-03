@@ -95,4 +95,8 @@ def predict(req: OOOsRequest):
     return OOOsResponse(
         rank_probs=probs.tolist(),
         estimated_rank=int(np.argmax(probs) + 1)
+<<<<<<< HEAD
     )
+=======
+    )
+>>>>>>> 223f032 (Fix CSV parsing (comma-delimited) & log(0) guard)
