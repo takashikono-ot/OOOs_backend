@@ -9,8 +9,8 @@ app = FastAPI(title="OOOs 潜在ランク推定API")
 
 # ↓↓↓ CORS 設定をここから追加 ↓↓↓
 origins = [
-    "https://github.com/takashikono-ot/OOOs_frontend.git",  # あなたのフロントエンドの URL
-   ]
+    "https://ooos-frontend.netlify.app",
+]
 
 app.add_middleware(
     CORSMiddleware,
